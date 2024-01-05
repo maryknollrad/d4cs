@@ -1,5 +1,5 @@
 ThisBuild / scalaVersion := "3.3.1"
-ThisBuild / version := "0.9.0"
+ThisBuild / version := "0.5.0-SNAPSHOT"
 ThisBuild / organization := "net.maryknollrad"
 
 val dcm4cheVersion = "5.31.2"
@@ -13,5 +13,8 @@ lazy val d4cs = (project in file("."))
             "org.dcm4che" % "dcm4che-core" % dcm4cheVersion,
             "org.dcm4che" % "dcm4che-net" % dcm4cheVersion,
             "org.dcm4che" % "dcm4che-imageio" % dcm4cheVersion
-        )
+        ),
+        githubOwner := "maryknollrad",
+        githubRepository := "d4cs",
+        publishConfiguration := publishConfiguration.value.withOverwrite(true)
     )
