@@ -26,10 +26,27 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.chaining.* 
 import org.slf4j.{Logger, LoggerFactory}
 
+object CFind:
+    def resource(host: String, port: Int, calledAe: String, callingAe: String, encoding: String) = 
+        Resource.make
+            (IO.blocking(CFind(host, port, calledAe, callingAe, encoding)))
+            (f => IO.blocking(f.shutdown()))
+
+/*
+import cats.effect.*
+object T extends IOApp:
+    def run(as: List[String]): IO[ExitCode] = 
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "error")
+        CFind.resource("a.b.c.d", 10, "CALLED-AE", "YADER", "utf-8").use:
+            case cfind =>
+                cfind.ping.flatMap(r => IO.println(if r then "SUCCESS" else "FAIL"))
+        *> IO(ExitCode.Success)
+*/
+
 // rough adaption of dcm4che FindSCU 
 // https://github.com/dcm4che/dcm4che/blob/master/dcm4che-tool/dcm4che-tool-findscu/src/main/java/org/dcm4che3/tool/findscu/FindSCU.java
 
-case class CFind(val callingAe: String, val calledAe: String, val remoteHost: String, val remotePort: Int, val encoding: String = "utf-8") extends DicomBase:
+case class CFind(val remoteHost: String, val remotePort: Int, val calledAe: String, val callingAe: String, val encoding: String = "utf-8") extends DicomBase:
     val deviceName: String = "FINDSCU"
 
     private val device = Device(deviceName)
@@ -129,9 +146,6 @@ case class CFind(val callingAe: String, val calledAe: String, val remoteHost: St
                     logger.debug("+++ Freeing association : {}", as)
                     as.waitForOutstandingRSP()
                     as.release() 
-                    // 여러번 호출하려면 shutdown 하면 안 됨, 언제 shutdown??
-                    // executorService.shutdown()
-                    // scheduledExecutorService.shutdown()
             }
 
     def toTagArray(dtags: DicomTags, attr: Attributes): Seq[StringTag] =
@@ -170,6 +184,30 @@ case class CFind(val callingAe: String, val calledAe: String, val remoteHost: St
                     as.cfind(cuid, priority, keys, null, dimseRespHandler)
         yield result.toSeq
     
+    def ping: IO[Boolean] = 
+        IO.blocking:
+            val req = AAssociateRQ()
+            req.setCalledAET(calledAe)
+            req.addPresentationContext(PresentationContext(1, UID.Verification, 
+                    UID.ImplicitVRLittleEndian, UID.ExplicitVRLittleEndian, UID.ExplicitVRBigEndian))
+
+            var as: Association = null
+            var attrs: Attributes = null
+            try
+                as = ae.connect(conn, remote, req)
+                val rsp = as.cecho()
+                rsp.next()
+                attrs = rsp.getCommand()
+            catch 
+                case _ => false
+            finally
+                if (as != null)
+                    as.waitForOutstandingRSP()
+                    as.release()
+                    as.waitForSocketClose()
+
+            (attrs != null) && attrs.contains(Tag.Status) && attrs.getInt(Tag.Status, -1) == 0
+
     def shutdown() = 
         executorService.shutdown()
         scheduledExecutorService.shutdown()

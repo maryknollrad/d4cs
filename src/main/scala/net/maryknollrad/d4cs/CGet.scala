@@ -35,9 +35,15 @@ import java.awt.Image
 import DicomBase.*
 import RetrieveLevel.*
 
+object CGet:
+    def resource(host: String, port: Int, calledAe: String, callingAe: String, encoding: String, storeFile: Boolean) = 
+        Resource.make
+            (IO.blocking(CGet(host, port, calledAe, callingAe, storeFile)))
+            (g => IO.blocking(g.shutdown()))
+
 // USING C-GET RATHER THAN C-MOVE 
 // http://dclunie.blogspot.com/2016/05/to-c-move-is-human-to-c-get-divine.html
-case class CGet(val callingAe: String, val calledAe: String, val remoteHost: String, val remotePort: Int, val storeFile: Boolean = true) extends DicomBase:
+case class CGet(val remoteHost: String, val remotePort: Int, val calledAe: String, val callingAe: String, val storeFile: Boolean = true) extends DicomBase:
     val deviceName: String = "GETSCU"
 
     private val device = Device(deviceName)

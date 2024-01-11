@@ -3,6 +3,8 @@ package net.maryknollrad.d4cs
 import java.time.{LocalDate, LocalTime}
 import java.time.format.DateTimeFormatter
 import org.dcm4che3.data.*
+import cats.effect.kernel.Resource
+import cats.effect.IO
 
 object DicomBase:
     type QueryHandler[A] = (DicomTags, Attributes) => A
@@ -52,6 +54,12 @@ object DicomBase:
                 val tags = tagStringWithDotSeparator.split('.').map(ElementDictionary.tagForKeyword(_, null))
                 getNestedString(tags)
             .toOption.flatten
+
+    def resources(host: String, port: Int, calledAe: String, callingAe: String, encoding: String, storeFile: Boolean): Resource[IO, (CFind, CGet)] = 
+        for 
+            cfind   <- CFind.resource(host, port, calledAe, callingAe, encoding)
+            cget    <- CGet.resource(host, port, calledAe, callingAe, encoding, storeFile)
+        yield (cfind, cget)
 
 trait DicomBase:
     import DicomBase.* 
